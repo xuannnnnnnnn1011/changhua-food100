@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>彰化市美食 100 選抽籤機 App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ff6b6b;
+            --secondary: #4ecdc4;
+            --bg: #f4f7f6;
+            --card-bg: #ffffff;
+        }
+        * { box-sizing: border-box; font-family: 'Noto Sans TC', sans-serif; }
+        body {
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            padding: 24px;
+            text-align: center;
+        }
+        h1 { color: #333; margin-bottom: 8px; font-size: 26px; }
+        p.subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
+        .stats { font-size: 12px; color: #999; margin-bottom: 20px; font-weight: bold; }
+        
+        /* 篩選按鈕區 */
+        .filter-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .filter-btn {
+            background: #f0f2f5;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #444;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn.active {
+            background: var(--secondary);
+            color: white;
+        }
+
+        /* 推薦卡片 */
+        .result-card {
+            background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
+            border: 2px solid #ffe3e3;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+        .result-card.bounce {
+            animation: bounce 0.4s ease-in-out;
+        }
+        .shop-name { font-size: 24px; font-weight: bold; color: var(--primary); margin-bottom: 10px; }
+        .shop-tag { 
+            display: inline-block; 
+            background: #ffe3e3; 
+            color: var(--primary); 
+            padding: 4px 12px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            margin: 0 auto 12px auto;
+            font-weight: bold;
+        }
+        .shop-desc { color: #555; font-size: 15px; line-height: 1.6; margin: 0; text-align: left; text-indent: 2em; }
+
+        /* 主按鈕 */
+        .action-btn {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.3);
+            transition: transform 0.1s, background 0.2s;
+        }
+        .action-btn:active { transform: scale(0.98); background: #ee5252; }
+
+        @keyframes bounce {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <h1>🍱 彰化美食隨機抽</h1>
+        <p class="subtitle">今天不踩雷！一鍵拯救你的選擇障礙</p>
+        <div class="stats" id="totalStats">已載入 100 間彰化在地精選美食</div>
+        
+        <div class="filter-container">
+            <button class="filter-btn active" onclick="setCategory('全部')">🎲 全部隨機</button>
+            <button class="filter-btn" onclick="setCategory('🥩 爌肉飯')">🥩 爌肉飯</button>
+            <button class="filter-btn" onclick="setCategory('🍘 肉圓')">🍘 肉圓</button>
+            <button class="filter-btn" onclick="setCategory('🍜 在地小吃')">🍜 在地小吃</button>
+            <button class="filter-btn" onclick="setCategory('🍹 甜點飲料')">🍹 甜點飲料</button>
+            <button class="filter-btn" onclick="setCategory('🎁 點心伴手')">🎁 點心伴手</button>
+        </div>
+
+        <div class="result-card" id="resultCard">
+            <div class="shop-name" id="shopName">今天想吃什麼？</div>
+            <div class="shop-tag" id="shopTag" style="display:none;"></div>
+            <p class="shop-desc" id="shopDesc" style="text-align: center; text-indent: 0;">點擊下方按鈕，從 100 間彰化最強名單中挑選一間大飽口福！</p>
+        </div>
+
+        <button class="action-btn" onclick="drawFood()">幫我決定下一餐！</button>
+    </div>
+
+    <script>
+        // 100間精選資料庫
+        const foodDatabase = [
+    {
+        "name": "阿泉爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "皮Q肉嫩的老字號，配上蝦丸湯與半熟蛋是彰化人的標配早餐！"
+    },
+    {
+        "name": "夜市爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "秒殺級美味！肉質軟嫩到像會化開，下午開門不到兩小時就賣光。"
+    },
+    {
+        "name": "魚市場爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "宵夜場霸主，肥肉派的最愛！滷汁帶甜，酸菜非常解膩。"
+    },
+    {
+        "name": "牟家爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "在地人私藏的口袋名單，滷汁鹹香不油膩，肉質扎實。"
+    },
+    {
+        "name": "阿章爌肉飯筒仔米糕",
+        "cat": "🥩 爌肉飯",
+        "desc": "縣政府旁的深夜美食，爌肉滷得入味，米糕和燉湯也是一絕。"
+    },
+    {
+        "name": "老店爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "永樂街附近的在地老店，爌肉肥瘦均勻，古早味滷汁超下飯。"
+    },
+    {
+        "name": "大成爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "在地人熱愛的早午餐選擇，腳庫肉極具彈性，配菜豐富。"
+    },
+    {
+        "name": "成功路爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "低調隱密卻大排長龍，肉質軟爛、膠質滿滿，晚來真的吃不到。"
+    },
+    {
+        "name": "東門爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "歷史悠久的傳統風味，醬香濃郁，肥肉部分Q彈不油膩。"
+    },
+    {
+        "name": "林爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "大埔路上的平價美味，爌肉大塊過癮，深受學生與上班族喜愛。"
+    },
+    {
+        "name": "阿本爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "古早味傳承，豬腳與爌肉都滷得透亮，湯品味道清甜。"
+    },
+    {
+        "name": "民生路爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "傳統早餐首選之一，肉質軟嫩，伴隨淡淡五香中藥香氣。"
+    },
+    {
+        "name": "爌肉義",
+        "cat": "🥩 爌肉飯",
+        "desc": "彰化在地連鎖老牌，品質穩定，瘦肉不柴、肥肉帶有黏稠膠質。"
+    },
+    {
+        "name": "合興爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "隱藏在市場內的庶民美食，價格親民，是在地人的廚房。"
+    },
+    {
+        "name": "天公壇爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "廟口經典小吃，大塊爌肉搭配酸菜與醃蘿蔔，酸甜鹹香完美平衡。"
+    },
+    {
+        "name": "阿正爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "深夜限定美味，半夜大排長龍，爌肉與茶碗蒸是必點組合。"
+    },
+    {
+        "name": "長安爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "肉質扎實有嚼勁，滷汁微甜，非常適合喜歡南部口味的朋友。"
+    },
+    {
+        "name": "市仔尾爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "傳承幾代的老味道，肉香四溢，米飯煮得粒粒分明。"
+    },
+    {
+        "name": "和美爌肉飯 (彰化店)",
+        "cat": "🥩 爌肉飯",
+        "desc": "雖然源自和美但在彰化市大受歡迎，爌肉皮非常Q軟。"
+    },
+    {
+        "name": "關帝廟爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "廟口飄香多年，每天傍晚開賣即吸引滿滿人潮，湯品種類豐富。"
+    },
+    {
+        "name": "中正路阿益爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "傳統風味、經濟實惠，爌肉滷得非常透徹，入口即化。"
+    },
+    {
+        "name": "三民路爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "鄰近火車站，交通方便，是許多外地客與通勤族的彰化爌肉飯初體驗。"
+    },
+    {
+        "name": "公園路爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "八卦山下的早晨美味，爬完山來一碗大爌肉飯配綜合湯最對味。"
+    },
+    {
+        "name": "彰化高商旁爌肉飯",
+        "cat": "🥩 爌肉飯",
+        "desc": "學生時代的共同回憶，份量大、價格便宜，大口吃肉超滿足。"
+    },
+    {
+        "name": "秀水旺爌肉飯 (彰化分店)",
+        "cat": "🥩 爌肉飯",
+        "desc": "獨門秘製滷汁，色澤深沉誘人，肉質軟嫩多汁。"
+    },
+    {
+        "name": "阿三肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "脆皮肉圓代名詞！干貝肉圓裡料超爆滿，一定要配龍骨髓湯。"
+    },
+    {
+        "name": "北門口肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "超酥脆的外皮配上獨門甜辣醬汁，是大火油炸派的經典老店。"
+    },
+    {
+        "name": "彰化肉圓 (阿璋)",
+        "cat": "🍘 肉圓",
+        "desc": "傳統軟皮肉圓的代表，電影《那些年》取景地，內餡香菇豬肉非常扎實。"
+    },
+    {
+        "name": "正彰化肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "阿璋對面的百年老店，堅持使用純番薯粉製作，皮Q內餡鮮美。"
+    },
+    {
+        "name": "大竹肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "彰化市大竹地區的隱藏版美味，在地人從小吃到大的軟嫩肉圓。"
+    },
+    {
+        "name": "彰美珍肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "傳統油炸肉圓，外皮Q彈有嚼勁，特調白醬甜甜辣辣十分開開胃。"
+    },
+    {
+        "name": "車路口肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "低調的黃昏市場美食，肉圓皮薄餡多，搭配麵線糊是在地經典吃法。"
+    },
+    {
+        "name": "過溝仔肉圓王",
+        "cat": "🍘 肉圓",
+        "desc": "隱藏在巷弄內的八十年老店，肉圓個頭大，肉餡加了大量筍丁。"
+    },
+    {
+        "name": "老店阿屘肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "傳統手工現包，外皮呈現漂亮的透明感，醬汁香氣撲鼻。"
+    },
+    {
+        "name": "南郭肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "南郭路上的人氣攤位，下午點心時間總是排滿接小孩放學的家長。"
+    },
+    {
+        "name": "莿桐腳肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "彰化交流道附近的在地美食，皮厚Q彈，內餡豬肉塊非常大氣。"
+    },
+    {
+        "name": "順正府廟口肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "廟口平價小吃，肉圓散發淡淡油香，搭配貢丸湯只要銅板價。"
+    },
+    {
+        "name": "永樂肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "永樂商圈的老字號，軟皮派擁護者的最愛，紅糟肉餡非常特別。"
+    },
+    {
+        "name": "華山路無名肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "沒有招牌卻默默賣了幾十年，特製辣醬辣得過癮，深受老饕喜愛。"
+    },
+    {
+        "name": "成功路手工肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "純手工揉製的外皮，口感比一般肉圓更具延展性與嚼勁。"
+    },
+    {
+        "name": "三民市場肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "市場內的早市肉圓，新鮮現炸，起鍋時香氣飄散整個市場。"
+    },
+    {
+        "name": "彰師大無名肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "專為學生設計的佛心價格，份量十足，加辣之後層次更豐富。"
+    },
+    {
+        "name": "林家肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "大埔路平價肉圓，醬汁濃郁，內餡豬肉有用五香粉特別醃製。"
+    },
+    {
+        "name": "民生路阿婆肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "阿婆親切的招呼聲與數十年不變的古早風味，吃的是一種情懷。"
+    },
+    {
+        "name": "泰和肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "泰和國小附近的下午茶首選，外皮微酥內裡軟Q，老少咸宜。"
+    },
+    {
+        "name": "建國肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "建國科技大學周邊美食，主打大份量，外皮Q中帶糯。"
+    },
+    {
+        "name": "中央路口肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "交通樞紐旁的美味，許多運將大哥最愛的台式下午點心。"
+    },
+    {
+        "name": "後站肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "彰化火車站後站的低調小攤，肉圓皮偏軟，甜醬給得非常大方。"
+    },
+    {
+        "name": "延平肉圓",
+        "cat": "🍘 肉圓",
+        "desc": "延平公園旁的溫馨小店，環境乾淨，肉圓內餡的筍絲非常清脆。"
+    },
+    {
+        "name": "秀水肉圓 (彰化店)",
+        "cat": "🍘 肉圓",
+        "desc": "特色手工肉圓，外皮厚度適中，獨門油炸火候維持絕佳口感。"
+    },
+    {
+        "name": "貓鼠麵",
+        "cat": "🍜 在地小吃",
+        "desc": "彰化三寶之一！湯頭由豬骨與蛤蜊熬煮清甜，手工燕丸必點。"
+    },
+    {
+        "name": "泉州街炒麵",
+        "cat": "🍜 在地小吃",
+        "desc": "在地人的靈魂台式早餐，炒麵淋上肉燥再加爆辣椒醬超爽。"
+    },
+    {
+        "name": "林家彰化涼麵",
+        "cat": "🍜 在地小吃",
+        "desc": "特製麻醬清爽不黏稠，使用寬扁麵條，夏天常常大排長龍。"
+    },
+    {
+        "name": "車路口肉羹",
+        "cat": "🍜 在地小吃",
+        "desc": "只賣肉羹跟麵線糊，肉羹扎實彈牙，湯頭勾芡適中、甜美滑順。"
+    },
+    {
+        "name": "阿添蛤仔麵",
+        "cat": "🍜 在地小吃",
+        "desc": "滿滿的純蛤蜊肉鋪在麵上，鮮甜的海鮮湯頭讓人忍不住整碗喝光。"
+    },
+    {
+        "name": "永樂街大腸麵線",
+        "cat": "🍜 在地小吃",
+        "desc": "永樂街夜市的經典老攤，大腸滷得軟爛入味，蒜泥加好加滿。"
+    },
+    {
+        "name": "杉行碗粿",
+        "cat": "🍜 在地小吃",
+        "desc": "傳承多年的手工碗粿，中間包了一大塊扎實豬肉，口感綿密。"
+    },
+    {
+        "name": "正宗員林肉圓 (彰化店)",
+        "cat": "🍜 在地小吃",
+        "desc": "雖是員林口味但在彰化市一樣熱銷，淋上特製白醬超美味。"
+    },
+    {
+        "name": "黑肉麵",
+        "cat": "🍜 在地小吃",
+        "desc": "孔廟對面的知名老店，除了麵點之外，排骨飯才是隱藏版主角！"
+    },
+    {
+        "name": "大眾排骨麵",
+        "cat": "🍜 在地小吃",
+        "desc": "排骨酥炸得金黃，泡入湯中吸滿精華，肉質軟嫩骨肉分離。"
+    },
+    {
+        "name": "阿輝拉仔麵",
+        "cat": "🍜 在地小吃",
+        "desc": "平價庶民美食，拉仔麵淋上特製蒜泥肉燥，銅板價就能吃飽。"
+    },
+    {
+        "name": "彰化素食",
+        "cat": "🍜 在地小吃",
+        "desc": "長亨街超人氣素食，豆包、素肉燥飯與當歸湯，非素食者也愛。"
+    },
+    {
+        "name": "老朱爌肉飯 (其實炒麵也很強)",
+        "cat": "🍜 在地小吃",
+        "desc": "雖然以爌肉聞名，但其台式炒麵搭配滷汁更是一絕。"
+    },
+    {
+        "name": "津津民生小吃",
+        "cat": "🍜 在地小吃",
+        "desc": "各式黑白切與古早味陽春麵，內臟類處理得乾淨毫無腥味。"
+    },
+    {
+        "name": "港仔菱角酥",
+        "cat": "🍜 在地小吃",
+        "desc": "現炸菱角酥，外皮香酥內裡鬆軟，微甜的滋味超適合當下午茶。"
+    },
+    {
+        "name": "大埔路無名鴨肉麵",
+        "cat": "🍜 在地小吃",
+        "desc": "煙燻鴨肉香氣濃郁，當歸鴨湯頭溫潤回甘，冬天進補首選。"
+    },
+    {
+        "name": "大埔鹽酥雞",
+        "cat": "🍜 在地小吃",
+        "desc": "宵夜時段大排長龍，炸物脫油乾爽，九層塔與蒜片給得毫不吝嗇。"
+    },
+    {
+        "name": "慶豐牛排",
+        "cat": "🍜 在地小吃",
+        "desc": "彰化人的台式牛排天花板！濃湯、麵包無限續，黑胡椒醬非常香。"
+    },
+    {
+        "name": "阿宏鵝肉",
+        "cat": "🍜 在地小吃",
+        "desc": "鮮嫩多汁的現切鵝肉，搭配一碗高湯冬粉，美味就是這麼簡單。"
+    },
+    {
+        "name": "老兵牛排",
+        "cat": "🍜 在地小吃",
+        "desc": "在地經營多年的平價牛排，肉質軟嫩，鐵板麵份量驚人。"
+    },
+    {
+        "name": "胡椒餅 (孔廟旁)",
+        "cat": "🍜 在地小吃",
+        "desc": "炭烤胡椒餅，外皮焦香酥脆，咬下會噴汁，滿滿的三星蔥與肉香。"
+    },
+    {
+        "name": "糯米炸 (長安街)",
+        "cat": "🍜 在地小吃",
+        "desc": "彰化特有傳統甜點！外酥內軟的熱糯米糰裹上花生粉，絕配。"
+    },
+    {
+        "name": "古早味潤餅 (三民市場)",
+        "cat": "🍜 在地小吃",
+        "desc": "現烙潤餅皮包入滿滿的高麗菜、豆芽菜與花生糖粉，清爽飽足。"
+    },
+    {
+        "name": "溫州大餛飩 (中正路)",
+        "cat": "🍜 在地小吃",
+        "desc": "餛飩個頭大如拳頭，內餡飽滿，湯頭配上紫菜與蛋絲非常經典。"
+    },
+    {
+        "name": "肉包明",
+        "cat": "🍜 在地小吃",
+        "desc": "彰化必買肉包，外皮膨鬆軟Q，內餡是帶有湯汁的香菇鮮肉。"
+    },
+    {
+        "name": "永隆湯包",
+        "cat": "🍜 在地小吃",
+        "desc": "現點現蒸的絲瓜蝦仁湯包，皮薄多汁，咬開滿死絲瓜的清甜。"
+    },
+    {
+        "name": "彰化火車站前蔥抓餅",
+        "cat": "🍜 在地小吃",
+        "desc": "外皮抓得極為酥脆，九層塔蛋跟起司是完美升級組合。"
+    },
+    {
+        "name": "大埔臭豆腐",
+        "cat": "🍜 在地小吃",
+        "desc": "外皮炸得酥脆、內部仍保有豆腐水分，搭配酸甜台式泡菜。"
+    },
+    {
+        "name": "林記燉品",
+        "cat": "🍜 在地小吃",
+        "desc": "各式個人養生燉湯，苦瓜排骨、香菇雞湯，香醇濃郁很暖胃。"
+    },
+    {
+        "name": "王長發商號",
+        "cat": "🍜 在地小吃",
+        "desc": "百年老屋改建的小吃店，百年傳承的古早味滷味與乾麵極具特色。"
+    },
+    {
+        "name": "彰化木瓜牛乳大王",
+        "cat": "🍹 甜點飲料",
+        "desc": "孔廟旁老店，木瓜牛奶濃郁順口，手工布丁是隱藏版必點！"
+    },
+    {
+        "name": "大元蔴薯",
+        "cat": "🎁 點心伴手",
+        "desc": "城隍廟旁名產，招牌鹹麻糬（瘦肉鹹蛋黃）鹹甜刷嘴完全不膩。"
+    },
+    {
+        "name": "水根行肉乾",
+        "cat": "🎁 點心伴手",
+        "desc": "在地幾十年的老字號肉乾，現烤香氣迷人，當零嘴或伴手禮都很棒。"
+    },
+    {
+        "name": "成功路芋沙餅",
+        "cat": "🎁 點心伴手",
+        "desc": "傳統中式糕點，芋頭餡綿密不甜膩，外皮酥脆多層次。"
+    },
+    {
+        "name": "南海茶道 (彰化總店)",
+        "cat": "🍹 甜點飲料",
+        "desc": "彰化發跡的頂級茶飲，現泡現萃，茶香回甘不苦澀。"
+    },
+    {
+        "name": "穩定飛行模式",
+        "cat": "🍹 甜點飲料",
+        "desc": "隱身巷弄的文青老宅咖啡廳，裝潢充滿復古味，手作甜點精緻。"
+    },
+    {
+        "name": "瘦子咖啡 Skinny Cafe",
+        "cat": "🍹 甜點飲料",
+        "desc": "彰化知名自家烘焙咖啡，單品手沖咖啡專業，環境舒適放鬆。"
+    },
+    {
+        "name": "右舍咖啡 (雖然在員林但彰化市有聯名)",
+        "cat": "🍹 甜點飲料",
+        "desc": "彰化地區咖啡界的傳奇，其咖啡豆與風味深受彰化市人喜愛。"
+    },
+    {
+        "name": "品蔚手作麵 (也有出厲害甜點)",
+        "cat": "🎁 點心伴手",
+        "desc": "主打手作麵食，但其附設的文青風甜品與奶酪意外爆紅。"
+    },
+    {
+        "name": "彰化地藏王廟旁剉冰",
+        "cat": "🍹 甜點飲料",
+        "desc": "古早味黑糖剉冰，配料都是老闆每天親自熬煮，粉圓超Q彈。"
+    },
+    {
+        "name": "大埔路手作豆花",
+        "cat": "🍹 甜點飲料",
+        "desc": "使用純天然黃豆製作，豆花口感綿密如絲絨，糖水帶有焦香。"
+    },
+    {
+        "name": "小木屋鬆餅 (彰師大店)",
+        "cat": "🍹 甜點飲料",
+        "desc": "校園周邊高CP值點心，鬆餅外酥內軟，口味選擇多達數十種。"
+    },
+    {
+        "name": "感官之旅 Bon Voyage",
+        "cat": "🍹 甜點飲料",
+        "desc": "彰化法式甜點天花板！精緻的法式塔類與蛋糕，視覺與味覺雙重享受。"
+    },
+    {
+        "name": "探索迷宮歐式莊園咖啡",
+        "cat": "🍹 甜點飲料",
+        "desc": "適合拍照打卡的莊園餐廳，下午茶茶點精緻，環境優美。"
+    },
+    {
+        "name": "端倪生活",
+        "cat": "🍹 甜點飲料",
+        "desc": "火車站旁的復古老宅咖啡廳，珍珠奶茶聖代與黑糖鮮奶非常出名。"
+    },
+    {
+        "name": "格子綠茶 (彰化老牌手搖)",
+        "cat": "🍹 甜點飲料",
+        "desc": "陪著許多彰化人長大的在地手搖飲店，泡沫紅茶與綠茶超經典。"
+    },
+    {
+        "name": "愛治文具房 (旁邊的文青小點)",
+        "cat": "🎁 點心伴手",
+        "desc": "雖然是文具店，但周邊常有合作的限量手作糕點與獨立咖啡攤。"
+    },
+    {
+        "name": "不二坊蛋黃酥",
+        "cat": "🎁 點心伴手",
+        "desc": "全台瘋搶的蛋黃酥傳奇！外皮酥到掉渣，紅豆餡與鹹蛋黃完美比例。"
+    },
+    {
+        "name": "紀家烘焙坊",
+        "cat": "🎁 點心伴手",
+        "desc": "在地人不想排隊不二坊時的完美替代方案，蛋黃酥一樣酥香美味。"
+    },
+    {
+        "name": "新口味食品行 (彰化名店市區買得到)",
+        "cat": "🎁 點心伴手",
+        "desc": "頂級蛋黃酥代表之一，底部極為酥脆，深得老饕喜愛。"
+    }
+];
+
+        let currentCategory = '全部';
+
+        function setCategory(cat) {
+            currentCategory = cat;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if(btn.innerText.includes(cat.replace('🥩 ','').replace('🍘 ','').replace('🍜 ','').replace('🍹 ','').replace('🎁 ','').replace('🎲 ',''))) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            let count = 0;
+            if(cat === '全部') {
+                count = foodDatabase.length;
+                document.getElementById('totalStats').innerText = `已載入 ${count} 間彰化在地精選美食`;
+            } else {
+                count = foodDatabase.filter(item => item.cat === cat).length;
+                document.getElementById('totalStats').innerText = `【${cat}】口袋名單共 ${count} 間`;
+            }
+        }
+
+        function drawFood() {
+            let pool = [];
+            
+            if (currentCategory === '全部') {
+                pool = foodDatabase;
+            } else {
+                pool = foodDatabase.filter(item => item.cat === currentCategory);
+            }
+
+            if(pool.length === 0) return;
+
+            const randomShop = pool[Math.floor(Math.random() * pool.length)];
+            
+            const card = document.getElementById('resultCard');
+            card.classList.remove('bounce');
+            void card.offsetWidth; 
+            card.classList.add('bounce');
+
+            document.getElementById('shopName').innerText = randomShop.name;
+            document.getElementById('shopDesc').innerText = randomShop.desc;
+            document.getElementById('shopDesc').style.textAlign = 'left';
+            document.getElementById('shopDesc').style.textIndent = '2em';
+            
+            const tag = document.getElementById('shopTag');
+            tag.innerText = randomShop.cat;
+            tag.style.display = 'inline-block';
+        }
+    </script>
+</body>
+</html>
